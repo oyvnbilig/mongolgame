@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mongolian Match</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Mongolian&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --app-bg: #ffffff;
+            --primary-color: #3b82f6; /* 现代蓝 */
+            --accent-color: #8b5cf6;  /* 优雅紫 */
+            --text-color: #1f2937;
+            --card-bg: #fff;
+            --card-border: #94a3b8;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --font-main: 'Noto Sans Mongolian', sans-serif;
+        }
+
+        * { box-sizing: border-box; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+
+        body {
+            margin: 0; padding: 0;
+            background: var(--bg-color);
+            height: 100vh; width: 100vw;
+            display: flex; justify-content: center; align-items: center;
+            font-family: var(--font-main);
+            overflow: hidden;
+        }
+
+        /* --- 游戏主容器 --- */
+        #app-container {
+            width: 100%; height: 100%;
+            max-width: 480px; max-height: 920px;
+            background: var(--app-bg);
+            position: relative;
+            display: flex; flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        @media (min-width: 500px) {
+            #app-container { height: 90vh; border-radius: 24px; border: 1px solid #e2e8f0; }
+        }
+
+        /* --- 顶部导航 --- */
+        header {
+            height: 60px; padding: 0 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.9); backdrop-filter: blur(4px);
+            border-bottom: 1px solid #f1f5f9;
+            z-index: 50;
+        }
+        .level-badge {
+            background: var(--primary-color); color: white;
+            padding: 4px 16px; border-radius: 20px; font-weight: 600; font-size: 16px;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+        .header-icons { display: flex; gap: 15px; }
+        .icon-btn { font-size: 20px; color: #64748b; cursor: pointer; transition: color 0.2s; }
+        .icon-btn:hover { color: var(--primary-color); }
+        .icon-btn:active { transform: scale(0.95); }
+
+        /* --- 主场景区域 --- */
+        main {
+            flex: 1; position: relative; width: 100%; overflow: hidden;
+            background: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* 1. 牌桌层 (Scene) */
+        #scene-layer {
+            position: absolute;
+            top: 10px; left: 10px; right: 70px; /* 右侧留出更宽的空间给Cache */
+            bottom: 150px; /* 底部留出空间给 Queue */
+        }
+
+        /* 2. 缓存区 (Cache) - 右侧停机坪 */
+        #cache-area {
+            position: absolute;
+            top: 20px; right: 10px;
+            width: 55px; /* 稍微宽一点 */
+            height: auto;
+            min-height: 400px;
+            display: flex; flex-direction: column;
+            gap: 8px; /* 槽位间距 */
+            z-index: 5;
+            padding: 10px 5px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .cache-label {
+            writing-mode: vertical-lr; 
+            text-align: center;
+            font-size: 10px; color: #94a3b8; 
+            margin-bottom: 5px;
+        }
+
+        .cache-slot {
+            width: 45px; height: 55px; /* 与卡片尺寸一致 */
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 12px; color: #cbd5e1; font-weight: bold;
+            background: rgba(241, 245, 249, 0.5);
+        }
+
+        /* 3. 队列区 (Queue) - 底部文本盘 */
+        #queue-area {
+            position: absolute;
+            bottom: 20px; left: 15px; right: 15px;
+            height: 125px; /* 增加高度以容纳两行 */
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            z-index: 5;
+            padding: 10px;
+            
+            /* 关键布局：允许换行 */
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap; 
+            align-content: flex-start; /* 内容从上到下紧凑排列 */
+            gap: 8px; /* 卡片间距 */
+            overflow-y: auto; /* 如果超过两行，允许垂直滚动 */
+        }
+
+        /* --- 卡片样式 --- */
+        .card {
+            position: absolute;
+            width: 45px; height: 55px;
+            /* 使用 transform 进行高性能动画 */
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); 
+            z-index: 10;
+            cursor: pointer;
+            /* 初始隐藏，由JS控制显示 */
+            top: 0; left: 0; 
+        }
+
+        .card-inner {
+            width: 100%; height: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            display: flex; justify-content: center; align-items: center;
+            writing-mode: vertical-lr; text-orientation: mixed;
+            font-size: 18px; /* 字体调大更清晰 */
+            color: #334155;
+            user-select: none;
+        }
+
+        /* 卡片交互状态 */
+        .card:active .card-inner { transform: scale(0.92); }
+        
+        .card.covered .card-inner {
+            background: #cbd5e1; color: #94a3b8; border-color: #94a3b8;
+            box-shadow: none; cursor: default;
+        }
+        
+        .card.in-queue .card-inner {
+            border: 2px solid var(--primary-color);
+            background: #eff6ff;
+        }
+        
+        .card.in-cache .card-inner {
+            border: 2px solid var(--accent-color);
+            background: #f5f3ff;
+        }
+
+        /* --- 知识卡片弹窗 --- */
+        /* 修改前: z-index: 100 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            display: none; justify-content: center; align-items: center; 
+            
+            /* 修改后：大大提高层级，压住 Cache 区的牌 */
+            z-index: 10000; 
+        }
+        .modal-content {
+            background: white; width: 85%; max-width: 340px;
+            padding: 25px; border-radius: 20px; text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            animation: modalPop 0.3s ease-out;
+        }
+        @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .k-box {
+            background: #f8fafc; border-radius: 12px; padding: 15px; margin: 15px 0;
+            border: 1px solid #e2e8f0; height: 200px;
+            writing-mode: vertical-lr; text-align: left;
+            display: flex; flex-direction: column; gap: 10px;
+            overflow-x: auto; margin-left: auto; margin-right: auto;
+        }
+        .k-word { font-size: 20px; font-weight: bold; color: var(--primary-color); }
+        .k-desc { font-size: 14px; color: #64748b; line-height: 1.6; }
+        
+        .primary-btn {
+            background: var(--primary-color); color: white; border: none;
+            padding: 12px 0; width: 100%; border-radius: 10px;
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+        }
+        .primary-btn:active { transform: translateY(1px); }
+
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <header>
+        <div class="level-badge">Lv.<span id="lv-disp">1</span></div>
+        <div class="header-icons">
+            <i class="fa fa-undo icon-btn" onclick="game.undoFromCache()" title="Undo"></i>
+            <i class="fa fa-lightbulb icon-btn" onclick="game.hint()" title="Hint"></i>
+            <i class="fa fa-random icon-btn" onclick="game.shuffle()" title="Shuffle"></i>
+        </div>
+    </header>
+
+    <main id="game-main">
+        <!-- 场景层 (Scene) -->
+        <div id="scene-layer"></div>
+
+        <!-- 缓存区 (Cache) -->
+        <div id="cache-area">
+            <div class="cache-label">暂存区</div>
+            <!-- 给每个槽位一个ID，方便JS获取坐标 -->
+            <div class="cache-slot" id="slot-0"></div>
+            <div class="cache-slot" id="slot-1"></div>
+            <div class="cache-slot" id="slot-2"></div>
+            <div class="cache-slot" id="slot-3"></div>
+            <div class="cache-slot" id="slot-4"></div>
+            <div class="cache-slot" id="slot-5"></div>
+            <div class="cache-slot" id="slot-6"></div>
+        </div>
+
+        <!-- 队列区 (Queue) -->
+        <div id="queue-area">
+            <!-- 卡片会自动排列在这里，超出自动换行 -->
+        </div>
+    </main>
+</div>
+
+<!-- 弹窗 -->
+<div id="modal-knowledge" class="modal-overlay">
+    <div class="modal-content">
+        <h2 style="margin:0 0 5px; color:#333;">收集成功</h2>
+        <div class="k-box">
+            <div class="k-word" id="k-word"></div>
+            <div class="k-desc" id="k-desc"></div>
+        </div>
+        <button class="primary-btn" onclick="game.closeKnowledge()">继续挑战</button>
+    </div>
+</div>
+
+<div id="modal-msg" class="modal-overlay">
+    <div class="modal-content">
+        <h2 id="msg-title" style="margin:0 0 10px;">提示</h2>
+        <p id="msg-desc" style="color:#666; margin-bottom:20px;">内容</p>
+        <button class="primary-btn" id="msg-btn">确定</button>
+    </div>
+</div>
+
+<script>
+// --- 游戏数据 ---
+const wordSources = [
+	{
+		value:'ᠠ ᠦᠰᠦᠭ ᠡᠷᠳᠡᠮ ᠎ᠤᠨ ᠳᠡᠭᠡᠵᠢ ᠠᠶᠠᠭ᠎ᠠ ᠴᠠᠢ ᠢᠳᠡᠭᠡᠨ ᠎ᠤ ᠳᠡᠭᠡᠵᠢ',
+		description:'学习知识从A开始，饮食精华为奶茶。'
+	},
+	{
+		value:'ᠠᠭᠤᠯᠠᠨ ᠎ᠳᠤ ᠣᠢᠷ᠎ᠠ ᠨᠢ ᠮᠣᠳᠣ᠌ ᠲᠦᠯᠡᠵᠦ ᠤᠰᠤᠨ ᠎ᠳᠤ ᠣᠢᠷ᠎ᠠ ᠨᠢ ᠵᠢᠭᠠᠰᠤ ᠢᠳᠡᠬᠦ',
+		description:'靠山吃山，靠水吃水。'
+	},
+    {
+		value:'ᠡᠷᠬᠡ ᠎ᠶᠢ ᠰᠤᠷᠬᠤ ᠎ᠪᠡᠷ ᠪᠡᠷᠬᠡ ᠎ᠶᠢ ᠰᠣᠷ',
+		description:'宁学吃苦，不学娇气。'
+	},
+    {
+        value: 'ᠮᠣᠩᠭᠣᠯ ᠪᠢᠴᠢᠭ ᠪᠣᠯ ᠦᠨᠡᠬᠡᠷ ᠭᠠᠢᠬᠠᠮᠰᠢᠭ',
+        description: '蒙古文真是奇迹。'
+    },
+    {
+		value:'ᠵᠤᠳ ᠪᠣᠯᠬᠤ ᠎ᠳᠤ ᠨᠣᠬᠠᠢ ᠲᠠᠷᠭᠤᠯᠠᠨ᠎ᠠ ᠵᠣᠪᠠᠯᠠᠩ ᠪᠣᠯᠬᠤ ᠎ᠳᠤ ᠨᠣᠶᠠᠨ ᠪᠠᠶᠠᠵᠢᠨ᠎ᠠ',
+		description:'雪灾时狗肥，患难时官富。'
+    }
+];
+
+class Game {
+    constructor() {
+        this.config = {
+            cardW: 45, cardH: 55, // 卡片尺寸，需与CSS保持一致
+            gap: 8, // 队列间距
+            cacheLimit: 7
+        };
+        this.state = {
+            level: 1,
+            scene: [], 
+            queue: [], 
+            cache: [], 
+            levelData: null,
+            isPaused: false
+        };
+        
+        this.audioTap = new Audio('put.mp3'); // 请确保文件存在
+        
+        // 绑定窗口调整事件，重新计算位置
+        window.addEventListener('resize', () => {
+            // 防抖
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(() => this.render(), 100);
+        });
+
+        this.init();
+    }
+
+    init() {
+        const savedLv = localStorage.getItem('mongol_lv');
+        if(savedLv) this.state.level = parseInt(savedLv);
+        this.startLevel(this.state.level);
+    }
+
+    startLevel(lv) {
+        this.state.level = lv;
+        document.getElementById('lv-disp').innerText = lv;
+        this.state.queue = [];
+        this.state.cache = [];
+        this.state.scene = [];
+        
+        // 选取关卡数据
+        let wordsCount = Math.min(lv + 1, 8); 
+        let selectedWords = [];
+        for(let i=0; i<wordsCount; i++) {
+            selectedWords.push(wordSources[i % wordSources.length]);
+        }
+        this.state.levelData = selectedWords.map(w => ({
+            arr: w.value.trim().split(/\s+/),
+            desc: w.description
+        }));
+
+        // 打散字符
+        let allChars = this.state.levelData.flatMap(w => w.arr);
+        this.createCards(allChars);
+        
+        this.checkSceneCover();
+        this.render();
+    }
+
+    createCards(chars) {
+        const container = document.getElementById('scene-layer');
+        container.innerHTML = ''; // 清空
+        // 注意：这里我们把卡片直接挂载在 main 容器下，以便于跨区域移动时坐标统一
+        // 但为了便于管理，我们在 JS 里计算绝对坐标
+        const mainEl = document.getElementById('game-main');
+        // 移除旧卡片
+        document.querySelectorAll('.card').forEach(e => e.remove());
+
+        const sceneRect = container.getBoundingClientRect();
+        
+        chars.forEach((char, idx) => {
+            const card = {
+                id: 'c_' + Math.random().toString(36).substr(2, 9),
+                text: char,
+                status: 0, 
+                // 相对 Scene 区域的随机坐标
+                x: Math.random() * (sceneRect.width - 50),
+                y: Math.random() * (sceneRect.height - 60),
+                z: idx,
+                isCovered: false
+            };
+            this.state.scene.push(card);
+
+            const el = document.createElement('div');
+            el.id = card.id;
+            el.className = 'card';
+            el.innerHTML = `<div class="card-inner">${char}</div>`;
+            el.onclick = () => this.onClickCard(card);
+            
+            // 初始挂载到 main，方便全屏绝对定位
+            mainEl.appendChild(el);
+        });
+    }
+
+    // 计算遮挡
+    checkSceneCover() {
+        const activeCards = this.state.scene.filter(c => c.status === 0);
+        activeCards.forEach(c => c.isCovered = false);
+        const W = this.config.cardW;
+        const H = this.config.cardH;
+
+        for(let i=0; i<activeCards.length; i++) {
+            let under = activeCards[i];
+            for(let j=0; j<activeCards.length; j++) {
+                if(i === j) continue;
+                let above = activeCards[j];
+                if(above.z <= under.z) continue; 
+
+                // 简单的 AABB 碰撞
+                if (!(under.x + W <= above.x || under.x >= above.x + W ||
+                      under.y + H <= above.y || under.y >= above.y + H)) {
+                    under.isCovered = true;
+                    break; 
+                }
+            }
+        }
+        this.updateStyles();
+    }
+
+    // 点击逻辑
+    onClickCard(card) {
+        if(this.state.isPaused) return;
+
+        // 1. Scene -> Queue
+        if(card.status === 0) {
+            if(card.isCovered) return;
+            this.playTap();
+            card.status = 1;
+            this.state.queue.push(card);
+            this.checkSceneCover();
+            this.render();
+            setTimeout(() => this.checkMatch(), 300);
+        }
+        // 2. Queue -> Cache
+        else if(card.status === 1) {
+            if(this.state.cache.length >= this.config.cacheLimit) {
+                this.showMsg("提示", "暂存区已满 (Max 7)");
+                return;
+            }
+            this.playTap();
+            this.state.queue = this.state.queue.filter(c => c.id !== card.id);
+            card.status = 3;
+            this.state.cache.push(card);
+            this.render();
+        }
+        // 3. Cache -> Queue
+        else if(card.status === 3) {
+            this.playTap();
+            this.state.cache = this.state.cache.filter(c => c.id !== card.id);
+            card.status = 1;
+            this.state.queue.push(card);
+            this.render();
+            setTimeout(() => this.checkMatch(), 300);
+        }
+    }
+
+    // 核心渲染：计算坐标
+    render() {
+        const mainRect = document.getElementById('game-main').getBoundingClientRect();
+        const sceneRect = document.getElementById('scene-layer').getBoundingClientRect();
+        const queueRect = document.getElementById('queue-area').getBoundingClientRect();
+        
+        // 计算 Queue 的网格布局 (换行逻辑)
+        // 我们需要知道每行能放几个
+        const qPadding = 10;
+        const qGap = 8;
+        const itemW = this.config.cardW;
+        const itemH = this.config.cardH;
+        // 每一行能容纳的数量
+        const itemsPerRow = Math.floor((queueRect.width - qPadding * 2 + qGap) / (itemW + qGap));
+
+        this.state.scene.forEach(card => {
+            const el = document.getElementById(card.id);
+            if(!el) return;
+
+            // 消除状态
+            if(card.status === 2) {
+                el.style.transform = 'scale(0)';
+                el.style.opacity = 0;
+                return;
+            }
+            el.style.opacity = 1;
+            el.style.transform = 'scale(1)'; // 重置缩放
+
+            let targetX, targetY, zIndex;
+
+            // ------------------------------------------
+            // 状态 0: Scene (在场景中)
+            // ------------------------------------------
+            if(card.status === 0) {
+                // card.x 是相对于 scene-layer 的
+                targetX = (sceneRect.left - mainRect.left) + card.x;
+                targetY = (sceneRect.top - mainRect.top) + card.y;
+                zIndex = card.z;
+                el.classList.remove('in-queue', 'in-cache');
+            }
+            
+            // ------------------------------------------
+            // 状态 1: Queue (在底部队列中 - 核心修改：支持换行)
+            // ------------------------------------------
+            else if(card.status === 1) {
+                const idx = this.state.queue.indexOf(card);
+                
+                // 计算行列
+                const row = Math.floor(idx / itemsPerRow);
+                const col = idx % itemsPerRow;
+
+                // 计算相对于 Queue 容器的偏移
+                const offsetX = qPadding + col * (itemW + qGap);
+                const offsetY = qPadding + row * (itemH + qGap);
+
+                // 转换为相对于 Main 的绝对坐标
+                targetX = (queueRect.left - mainRect.left) + offsetX;
+                targetY = (queueRect.top - mainRect.top) + offsetY;
+                
+                zIndex = 1000 + idx;
+                el.classList.add('in-queue');
+                el.classList.remove('in-cache');
+            }
+
+            // ------------------------------------------
+            // 状态 3: Cache (在右侧暂存区 - 核心修改：吸附)
+            // ------------------------------------------
+            else if(card.status === 3) {
+                const idx = this.state.cache.indexOf(card);
+                // 获取对应的虚线框 DOM
+                const slotEl = document.getElementById(`slot-${idx}`);
+                
+                if(slotEl) {
+                    const slotRect = slotEl.getBoundingClientRect();
+                    // 目标坐标 = 虚线框的绝对位置 - main的绝对位置
+                    targetX = slotRect.left - mainRect.left;
+                    targetY = slotRect.top - mainRect.top;
+                } else {
+                    // 降级处理
+                    targetX = 0; targetY = 0;
+                }
+
+                zIndex = 2000 + idx;
+                el.classList.add('in-cache');
+                el.classList.remove('in-queue');
+            }
+
+            // 应用变换 (统一使用 translate)
+            el.style.transform = `translate(${targetX}px, ${targetY}px)`;
+            el.style.zIndex = zIndex;
+        });
+
+        this.updateStyles();
+    }
+
+    updateStyles() {
+        this.state.scene.forEach(c => {
+            const el = document.getElementById(c.id);
+            if(el) {
+                if(c.status === 0 && c.isCovered) el.classList.add('covered');
+                else el.classList.remove('covered');
+            }
+        });
+    }
+
+    checkMatch() {
+        const queueChars = this.state.queue.map(c => c.text);
+        let matchedIdx = -1, matchedData = null;
+
+        // 顺序匹配逻辑
+        for(let wData of this.state.levelData) {
+            const wLen = wData.arr.length;
+            if(wLen > queueChars.length) continue;
+            for(let i=0; i <= queueChars.length - wLen; i++) {
+                if(queueChars.slice(i, i+wLen).every((val, k) => val === wData.arr[k])) {
+                    matchedIdx = i; matchedData = wData; break;
+                }
+            }
+            if(matchedIdx !== -1) break;
+        }
+
+        if(matchedIdx !== -1) {
+            this.playTap();
+            const toRemove = this.state.queue.splice(matchedIdx, matchedData.arr.length);
+            toRemove.forEach(c => c.status = 2);
+            this.render();
+            this.state.isPaused = true;
+            setTimeout(() => this.showKnowledge(matchedData), 500);
+        }
+    }
+
+    showKnowledge(data) {
+        // 安全获取单词文本
+        const wordText = (data.arr && Array.isArray(data.arr)) ? data.arr.join(' ') : '未知词条';
+        
+        // 安全获取释义
+        // 1. 优先取 data.desc (startLevel 映射后的名字)
+        // 2. 其次取 data.description (原始数据的名字，防备未映射)
+        // 3. 最后兜底显示 "暂无释义"
+        const descText = data.desc || data.description || "暂无释义 (Translation missing)";
+
+        document.getElementById('k-word').innerText = wordText;
+        document.getElementById('k-desc').innerText = descText;
+        document.getElementById('modal-knowledge').style.display = 'flex';
+    }
+
+    closeKnowledge() {
+        document.getElementById('modal-knowledge').style.display = 'none';
+        this.state.isPaused = false;
+        // 检查通关
+        const remaining = this.state.scene.filter(c => c.status !== 2);
+        if(remaining.length === 0) {
+            this.showMsg("太棒了!", "关卡完成", () => {
+                localStorage.setItem('mongol_lv', this.state.level + 1);
+                this.startLevel(this.state.level + 1);
+            });
+        }
+    }
+
+    // 道具实现
+    undoFromCache() {
+        if(this.state.cache.length > 0) {
+            const card = this.state.cache.pop();
+            card.status = 0; // 回场上
+            // 稍微随机位置防止重叠
+            card.x += (Math.random()-0.5) * 30;
+            card.y += (Math.random()-0.5) * 30;
+            this.checkSceneCover();
+            this.render();
+        } else {
+            this.showMsg("提示", "暂存区没有牌");
+        }
+    }
+
+    hint() {
+        // --- 核心辅助函数：寻找特定文字的最佳实例 ---
+        const findBestInstance = (charText) => {
+            // 1. 查缓存
+            let card = this.state.cache.find(c => c.text === charText);
+            if (card) return { card, type: 'accessible' }; 
+
+            // 2. 查场上 (未遮挡)
+            let sceneCards = this.state.scene.filter(c => c.text === charText && c.status === 0);
+            sceneCards.sort((a, b) => b.z - a.z);
+
+            for (let c of sceneCards) {
+                if (!c.isCovered) return { card: c, type: 'accessible' };
+            }
+
+            // 3. 查场上 (被遮挡)
+            if (sceneCards.length > 0) {
+                return { card: sceneCards[0], type: 'blocked' };
+            }
+            return null;
+        };
+
+        const queueChars = this.state.queue.map(c => c.text);
+        let result = null;
+
+        // ... (中间查找逻辑保持不变，省略以节省篇幅，直接看最后的动画处理部分) ...
+        
+        // === 这里的查找逻辑与之前一致，请保持之前的代码 ===
+        if (queueChars.length > 0) {
+            for (let wData of this.state.levelData) {
+                const wArr = wData.arr;
+                if (wArr.length > queueChars.length) {
+                    let isPrefix = true;
+                    for(let i=0; i<queueChars.length; i++) {
+                        if(wArr[i] !== queueChars[i]) { isPrefix = false; break; }
+                    }
+                    if (isPrefix) {
+                        const nextChar = wArr[queueChars.length];
+                        result = findBestInstance(nextChar);
+                        if (result) break;
+                    }
+                }
+            }
+        } else {
+            for (let wData of this.state.levelData) {
+                const firstChar = wData.arr[0];
+                const res = findBestInstance(firstChar);
+                if (res && res.type === 'accessible') { result = res; break; }
+            }
+            if (!result) {
+                for (let wData of this.state.levelData) {
+                    const firstChar = wData.arr[0];
+                    const res = findBestInstance(firstChar);
+                    if (res) { result = res; break; }
+                }
+            }
+        }
+
+        // ============================================
+        // 修复 Bug 的动画执行部分
+        // ============================================
+        if (result && result.card) {
+            const el = document.getElementById(result.card.id);
+            if (el) {
+                const inner = el.querySelector('.card-inner');
+                
+                // 记录原始状态
+                const originTransform = el.style.transform;
+                const originZ = el.style.zIndex;
+                
+                // 动画配置
+                el.style.transition = 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                el.style.zIndex = 9999; 
+                el.style.transform = originTransform + ' scale(1.2)';
+
+                if (result.type === 'accessible') {
+                    inner.style.border = '2px solid #f59e0b'; 
+                    inner.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.8)';
+                    inner.style.background = '#fffbeb';
+                } else {
+                    inner.style.border = '2px solid #ef4444';
+                    inner.style.boxShadow = '0 0 20px rgba(239, 68, 68, 0.8)';
+                    inner.style.background = '#fef2f2';
+                    el.style.transform = originTransform + ' scale(1.1) rotate(5deg)';
+                }
+
+                // --- 关键修复点 ---
+                setTimeout(() => {
+                    if (el) {
+                        // 1. 无论卡片去哪了，都要清除高亮颜色
+                        inner.style.border = '';
+                        inner.style.boxShadow = '';
+                        inner.style.background = '';
+
+                        // 2. 只有当卡片状态没变（还在原地）时，才恢复坐标和层级
+                        // 如果状态变了（被点击移走了），千万不要动 transform
+                        if (result.card.status === 0 || (result.card.status === 3 && result.type === 'accessible')) { 
+                            // 注意：如果它原本在Cache被提示，也没被点走，也要恢复
+                            // 最简单的判断：检查它现在的状态是否和提示开始时一致，或者是否还在场上
+                            
+                            // 更稳健的写法：只有在 status 为 0 (Scene) 且 transform 没被 render 覆盖时才恢复
+                            // 但由于 render 是响应式的，我们只需要判断它是不是进 Queue 了
+                            if (result.card.status !== 1) { 
+                                el.style.transform = originTransform;
+                                el.style.zIndex = originZ;
+                            }
+                        }
+                    }
+                }, 1200);
+            }
+        } else {
+            this.showMsg("提示", "未找到匹配的目标字");
+        }
+    }
+
+    shuffle() {
+        const active = this.state.scene.filter(c => c.status === 0);
+        const sceneRect = document.getElementById('scene-layer').getBoundingClientRect();
+        active.forEach(c => {
+            c.x = Math.random() * (sceneRect.width - 50);
+            c.y = Math.random() * (sceneRect.height - 60);
+            c.z = Math.floor(Math.random() * 100);
+        });
+        active.sort((a,b)=>a.z-b.z).forEach((c,i)=>c.z=i);
+        this.checkSceneCover();
+        this.render();
+    }
+
+    showMsg(title, desc, cb) {
+        document.getElementById('msg-title').innerText = title;
+        document.getElementById('msg-desc').innerText = desc;
+        const btn = document.getElementById('msg-btn');
+        btn.onclick = () => {
+            document.getElementById('modal-msg').style.display = 'none';
+            if(cb) cb();
+        };
+        document.getElementById('modal-msg').style.display = 'flex';
+    }
+
+    playTap() { this.audioTap.currentTime = 0; this.audioTap.play().catch(()=>{}); }
+}
+
+const game = new Game();
+</script>
+</body>
+</html>

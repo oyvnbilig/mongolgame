@@ -1,0 +1,147 @@
+<!-- 生成html基本模板 -->
+<!DOCTYPE html>
+<html lang="mn">    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mongolian Quiz</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<style>
+    /* 样式 */
+    .quiz-container {
+        /* 竖排模式下：row 是垂直方向，column 是水平方向
+        横排模式下：row 是水平方向，column 是垂直方向
+        所以侧边栏和主内容是竖排并列 */
+        writing-mode: vertical-lr;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        width: 100vw;
+        background: #fafafa;
+    }
+
+    .sidebar {
+        /* 侧边栏宽度 80px，这只是模拟 */
+        width: 80px;
+        height: 100%;
+        background: #110101;
+        /* 不能被挤压 */
+        flex-shrink: 0;
+    }
+    .main-content {
+        /* 主内容填充剩余空间 */
+        flex: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: row;
+        padding: 20px;
+        background-color: aqua;
+        overflow: auto;
+    }
+    .pictures {
+        /* 原则上有图片时不能被挤压 */
+        /* flex-shrink: 0; */
+        width: 100%;
+        max-height: 200px;
+        background: #fafafa;
+        border-radius: 20px;
+        box-shadow: var(--shadow-md);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .picture {
+        width: 80px;
+        height: 80px;
+        background: #fafafa;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: blue;
+    }
+    .media-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .quiz-area {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        padding: 20px;
+        background: #34bb1a;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        overflow: auto;
+    }
+    .quiz-title {
+        background-color: brown;
+    }
+    .quiz-options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .quiz-option {
+        background: salmon;
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        cursor: pointer;
+    }
+    .quiz-option:hover {
+        background: #e2e8f0;
+    }
+    .quiz-option-text {
+        font-size: 16px;
+    }
+    .quiz-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+</style>
+<body>
+    <div class="quiz-container">
+         <div class="sidebar"></div>
+         <div class="main-content">
+            <!-- 内容区上下布局 -->
+             <!-- 当没有图片时，图片区域会隐藏，内容quiz-area会填充剩余空间 -->
+            <div class="pictures">
+                <!-- 图片区域,原则上给图片一个宽高比，然后根据图片的宽高比来设置图片的宽度和高度，图片要横排 -->
+                <div class="picture">
+                    <img id="q-image" src="https://cdn-icons-png.flaticon.com/512/3304/3304706.png" class="media-img" alt="Quiz Image">
+                </div>
+                <div class="picture">
+                    <img id="q-image" src="https://cdn-icons-png.flaticon.com/512/3304/3304706.png" class="media-img" alt="Quiz Image">
+                </div>
+            </div>
+            <div class="quiz-area">
+                <div class="quiz-title">ᠡᠨᠡ ᠪᠣᠯ ᠭᠠᠷᠴᠠᠭ ᠂ ᠠᠷᠪᠢᠨ ᠠᠷᠪᠢᠨ ᠦᠰᠦᠭ ᠲᠠᠢ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ？</div>
+                <div class="quiz-options">
+                    <div class="quiz-option">
+                        <div class="quiz-option-text">ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠭᠤᠷᠪᠠ</div>
+                    </div>
+                    <div class="quiz-option">
+                        <div class="quiz-option-text">ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠷᠪᠠ</div>
+                    </div>
+                    <div class="quiz-option">
+                        <div class="quiz-option-text">ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ</div>
+                    </div>
+                    <div class="quiz-option">
+                        <div class="quiz-option-text">ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ ᠨᠢᠭᠡ ᠬᠣᠶᠠᠷ ᠤᠯᠤᠰ</div>
+                    </div>
+                </div>
+                <div class="quiz-controls">
+                    <button class="btn btn-primary">ᠳᠠᠷᠠᠭᠠᠴᠢ</button>
+                </div>
+            </div>
+         </div>
+    </div> 
+</body>

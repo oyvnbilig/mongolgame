@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="mn">    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Select Category</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 主内容区 */
+        .content-area {
+            flex: 1; height: 100%;
+            padding: 20px;
+            overflow-x: auto; /* 允许内容向右无限延伸 */
+        }
+
+        /* 分类网格容器 */
+        .category-grid {
+            height: 100%; /* 撑满高度 */
+            display: flex;
+            /* 关键修正：在 vertical-lr 中，row = 垂直堆叠 (Top->Bottom) */
+            flex-direction: row; 
+            /* 允许换行：当垂直方向满了，向右换列 */
+            flex-wrap: wrap;     
+            align-content: flex-start; /* 列之间紧凑排列 */
+            gap: 20px; /* 间距 */
+        }
+
+        /* 卡片设计 */
+        .cat-card {
+            width: 100px; /* 固定宽度 */
+            height: 160px; /* 高度可以自适应或固定 */
+            background: var(--surface-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            display: flex; 
+            flex-direction: column; /* 竖排下 column = 水平排列 (Icon Left, Text Right) - 这里微调看效果 */
+            /* 实际上想要内部文字竖排，所以内部还是 vertical-lr */
+            align-items: center; justify-content: center;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden;
+        }
+
+        /* 悬停效果 */
+        .cat-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        /* 装饰背景圆 */
+        .cat-card::before {
+            content: ''; position: absolute; top: -20px; right: -20px;
+            width: 60px; height: 60px;
+            background: var(--primary-light); border-radius: 50%;
+            z-index: 0; opacity: 0.5;
+        }
+
+        .cat-name {
+            font-size: 20px; font-weight: bold;
+            z-index: 1; margin-top: 10px;
+            color: var(--text-main);
+        }
+        
+        .cat-icon-box {
+            width: 40px; height: 40px;
+            background: var(--primary-light); color: var(--primary-color);
+            border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 18px; z-index: 1;
+            /* 图标本身横排 */
+            writing-mode: horizontal-tb; transform: rotate(90deg);
+        }
+        .cat-icon-box i { transform: rotate(-90deg); }
+
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+         <!-- 侧边栏 -->
+         <nav class="sidebar-nav">
+            <a href="index.html" class="nav-btn"><i class="fa-solid fa-arrow-left"></i></a>
+            <div class="nav-title">ᠰᠡᠳᠦᠪ ᠰᠣᠩᠭᠣᠬᠤ</div> <!-- 选择分类 -->
+            <div style="width: 48px;"></div>
+         </nav>
+
+         <!-- 主内容 -->
+         <main class="content-area scroll-hide">
+            <div class="category-grid" id="cat-list">
+                <!-- JS 注入 -->
+            </div>
+         </main>
+    </div> 
+
+    <script type="module">
+        import { questions } from './js/data.js';
+
+        const listEl = document.getElementById('cat-list');
+        const categories = [...new Set(questions.map(q => q.category))];
+        
+        // 预设图标映射
+        const icons = ['fa-book', 'fa-globe', 'fa-landmark', 'fa-pen-nib', 'fa-palette'];
+
+        categories.forEach((cat, index) => {
+            const div = document.createElement('div');
+            div.className = 'cat-card';
+            const icon = icons[index % icons.length];
+            
+            div.innerHTML = `
+                <div class="cat-icon-box"><i class="fa-solid ${icon}"></i></div>
+                <span class="cat-name">${cat}</span>
+            `;
+            div.onclick = () => {
+                window.location.href = `quiz_game.html?category=${encodeURIComponent(cat)}`;
+            };
+            listEl.appendChild(div);
+        });
+    </script>
+</body>
+</html>

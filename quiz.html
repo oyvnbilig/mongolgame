@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mongolian Quiz</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 全局竖排 */
+        .app-container { writing-mode: vertical-lr; }
+
+        /* --- 侧边栏 (Fixed Left) --- */
+        .sidebar {
+            width: 64px; height: 100%;
+            background: #fff;
+            border-right: 1px solid #e2e8f0;
+            display: flex; flex-direction: row; /* 竖排下 row = 垂直堆叠 */
+            justify-content: space-between; align-items: center;
+            padding: 20px 0; z-index: 10; flex-shrink: 0;
+        }
+        
+        .sidebar-title {
+            writing-mode: vertical-lr;
+            font-size: 16px; font-weight: 900;
+            color: var(--primary-color);
+            letter-spacing: 2px;
+            padding: 10px 0;
+        }
+
+        .timer-badge {
+            writing-mode: vertical-lr;
+            font-variant-numeric: tabular-nums;
+            font-weight: bold; color: var(--text-light);
+            background: #f1f5f9; padding: 8px 6px;
+            border-radius: 8px; font-size: 12px;
+        }
+
+        /* --- 主视图区域 --- */
+        .view-section {
+            flex: 1; display: none; height: 100%;
+            /* 竖排模式下，flex-direction: column 让子元素从左向右排列 */
+            flex-direction: column; 
+            overflow-x: auto; overflow-y: hidden;
+        }
+        .view-section.active { display: flex; }
+
+        /* ================= 分类选择页样式 ================= */
+        .cat-grid {
+            display: flex; flex-direction: column; /* 水平排列 */
+            flex-wrap: wrap; align-content: flex-start;
+            padding: 20px; gap: 20px; height: 100%;
+        }
+        .cat-card {
+            width: 80px; height: 160px;
+            background: white; border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            display: flex; justify-content: center; align-items: center;
+            gap: 10px; cursor: pointer; transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .cat-card:active { transform: scale(0.96); }
+        .cat-card.selected { border-color: var(--primary-color); background: #eff6ff; }
+        .cat-icon { writing-mode: horizontal-tb; transform: rotate(90deg); color: var(--primary-color); font-size: 20px;}
+        .cat-text { font-weight: bold; font-size: 16px; }
+
+        /* ================= 答题页布局核心 (Key Update) ================= */
+        
+        /* 1. 题目区域 (Left) */
+        .quiz-section-question {
+            /* 弹性伸缩，让题目占据主要空间 */
+            flex: 1; 
+            min-width: 60px; max-width: 400px; /* 限制最大宽度防止太宽 */
+            padding: 30px 20px;
+            display: flex; align-items: flex-start; justify-content: center;
+        }
+        .q-text {
+            font-size: 24px; line-height: 1.8;
+            font-weight: bold; color: var(--text-color);
+            text-align: justify;
+            height: 100%; /* 撑满高度 */
+        }
+
+        /* 2. 媒体区域 (Middle - Optional) */
+        .quiz-section-media {
+            display: none; /* 默认隐藏 */
+            padding: 20px 10px;
+            flex-direction: column; justify-content: center;
+        }
+        .quiz-section-media.has-image { display: flex; }
+        
+        .media-box {
+            width: 160px; height: 160px;
+            background: #fff; border-radius: 16px;
+            box-shadow: var(--shadow-md);
+            overflow: hidden; padding: 5px;
+            /* 图片容器内部回归横排，方便放图 */
+            writing-mode: horizontal-tb; 
+            display: flex; justify-content: center; align-items: center;
+        }
+        .media-img {
+            width: 100%; height: 100%; object-fit: cover; border-radius: 12px;
+            transform: rotate(90deg); /* 如果原图是横向的，可能需要旋转适应竖屏设计，视资源而定 */
+            /* 如果你的资源已经是竖着的，去掉这个rotate */
+        }
+
+        /* 3. 选项区域 (Right) */
+        .quiz-section-options {
+            padding: 20px;
+            display: flex; 
+            flex-direction: column; /* 竖排下 column = 水平排列 */
+            flex-wrap: wrap; /* 允许换列 */
+            align-content: flex-start; justify-content: center;
+            gap: 15px;
+        }
+
+        .opt-card {
+            background: white;
+            border-radius: 16px;
+            padding: 15px 12px;
+            /* 核心：选项卡片尺寸 */
+            height: 120px; width: 60px; 
+            box-shadow: var(--shadow-sm);
+            border: 2px solid transparent;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: all 0.2s;
+            position: relative;
+        }
+        
+        /* 状态样式 */
+        .opt-card:active { transform: scale(0.95); background: #f8fafc; }
+        .opt-card.correct { border-color: var(--success-color); background: #ecfdf5; color: #065f46; }
+        .opt-card.wrong { border-color: var(--error-color); background: #fef2f2; color: #991b1b; }
+        
+        /* 选项内文字 */
+        .opt-text {
+            font-size: 16px; font-weight: bold;
+            pointer-events: none;
+            text-align: center;
+        }
+        
+        /* 选项标号 (A, B, C...) - 绝对定位 */
+        .opt-index {
+            position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+            font-size: 10px; color: #cbd5e1; font-weight: bold;
+        }
+
+        /* 结果弹窗文字 */
+        .score-text { font-size: 48px; color: var(--primary-color); font-weight: 900; }
+        .result-label { font-size: 18px; color: #64748b; margin-left: 10px; }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- 侧边栏：始终显示 -->
+    <nav class="sidebar">
+        <a href="index.html" class="btn-icon" style="color:var(--text-light)">
+            <i class="fa-solid fa-house"></i>
+        </a>
+        
+        <!-- 动态标题 -->
+        <div class="sidebar-title" id="page-title">ᠰᠡᠳᠦᠪ</div>
+
+        <!-- 计时器 (仅在答题时显示非0) -->
+        <div class="timer-badge" id="timer">00:00</div>
+    </nav>
+
+    <!-- 1. 分类选择页 -->
+    <main id="view-home" class="view-section active hide-scrollbar">
+        <div class="cat-grid" id="category-list">
+            <!-- JS注入分类卡片 -->
+        </div>
+    </main>
+
+    <!-- 2. 答题页 -->
+    <main id="view-quiz" class="view-section hide-scrollbar">
+        
+        <!-- A. 题目 (左) -->
+        <div class="quiz-section-question">
+            <div class="q-text" id="q-text">Loading...</div>
+        </div>
+
+        <!-- B. 图片 (中 - 动态显隐) -->
+        <div class="quiz-section-media" id="media-area">
+            <div class="media-box">
+                <img id="q-image" src="" class="media-img" alt="Quiz Image">
+            </div>
+        </div>
+
+        <!-- C. 选项 (右) -->
+        <div class="quiz-section-options" id="options-area">
+            <!-- JS注入选项 -->
+        </div>
+
+        <!-- 占位符，保证最右侧有呼吸空间 -->
+        <div style="width: 20px; flex-shrink: 0;"></div>
+    </main>
+
+</div>
+
+<!-- 结算弹窗 -->
+<div id="result-modal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="result-label">ᠲᠠᠨ ᠊ᠤ ᠣᠨᠣᠭᠣ</div> <!-- 你的得分 -->
+        <div class="score-text" id="final-score">0</div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-right:20px;">
+            <button class="btn-icon" style="background:var(--primary-color); color:white;" onclick="resetQuiz()">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+            <button class="btn-icon" onclick="exitQuiz()">
+                <i class="fa-solid fa-list"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { questions } from './js/data.js';
+
+    // 状态管理
+    const state = {
+        activeCat: null,
+        queue: [],
+        currIdx: 0,
+        score: 0,
+        timer: 0,
+        timerId: null,
+        isBusy: false
+    };
+
+    // DOM 元素
+    const views = {
+        home: document.getElementById('view-home'),
+        quiz: document.getElementById('view-quiz'),
+        modal: document.getElementById('result-modal')
+    };
+    
+    const els = {
+        catList: document.getElementById('category-list'),
+        pageTitle: document.getElementById('page-title'),
+        timer: document.getElementById('timer'),
+        qText: document.getElementById('q-text'),
+        mediaArea: document.getElementById('media-area'),
+        qImage: document.getElementById('q-image'),
+        optArea: document.getElementById('options-area'),
+        finalScore: document.getElementById('final-score')
+    };
+
+    // --- 初始化 ---
+    function init() {
+        const cats = [...new Set(questions.map(q => q.category))];
+        els.catList.innerHTML = '';
+        
+        cats.forEach(cat => {
+            const btn = document.createElement('div');
+            btn.className = 'cat-card';
+            btn.innerHTML = `
+                <div class="cat-icon"><i class="fa-solid fa-book-open"></i></div>
+                <div class="cat-text">${cat}</div>
+            `;
+            btn.onclick = () => startQuiz(cat);
+            els.catList.appendChild(btn);
+        });
+    }
+
+    // --- 逻辑控制 ---
+    window.startQuiz = (category) => {
+        state.activeCat = category;
+        state.queue = questions.filter(q => q.category === category).sort(() => Math.random() - 0.5);
+        state.currIdx = 0;
+        state.score = 0;
+        state.timer = 0;
+        
+        // 切换视图
+        views.home.classList.remove('active');
+        views.quiz.classList.add('active');
+        els.pageTitle.innerText = category; // 设置侧边栏标题
+        
+        startTimer();
+        renderQuestion();
+    };
+
+    function renderQuestion() {
+        if (state.currIdx >= state.queue.length) {
+            endQuiz();
+            return;
+        }
+        
+        const q = state.queue[state.currIdx];
+        state.isBusy = false;
+
+        // 1. 文字
+        els.qText.innerText = q.question;
+
+        // 2. 图片 (检查是否有图)
+        // 兼容 data.js 中 image 是数组或字符串的情况
+        const imgSrc = Array.isArray(q.image) ? q.image[0] : q.image;
+        if (imgSrc) {
+            els.mediaArea.classList.add('has-image');
+            els.qImage.src = imgSrc;
+        } else {
+            els.mediaArea.classList.remove('has-image');
+        }
+
+        // 3. 选项
+        els.optArea.innerHTML = '';
+        // 创建带有原始索引的选项数组以进行乱序
+        const opts = q.options.map((txt, i) => ({ txt, i }));
+        // 简单的乱序算法
+        opts.sort(() => Math.random() - 0.5);
+
+        opts.forEach((opt, displayIndex) => {
+            const card = document.createElement('div');
+            card.className = 'opt-card';
+            // 蒙古数字标号 (1-4)
+            const mongolNums = ['᠑','᠒','᠓','᠔']; 
+            
+            card.innerHTML = `
+                <span class="opt-index">${mongolNums[displayIndex] || '.'}</span>
+                <span class="opt-text">${opt.txt}</span>
+            `;
+            
+            card.onclick = () => handleAnswer(card, opt.i === q.correct);
+            els.optArea.appendChild(card);
+        });
+
+        // 这里的 scrollLeft = 0 在竖排模式下其实是“顶部”，但在物理上是左边
+        // 确保切换题目时视角回到起始点
+        views.quiz.scrollLeft = 0; 
+    }
+
+    function handleAnswer(card, isCorrect) {
+        if (state.isBusy) return;
+        state.isBusy = true;
+
+        if (isCorrect) {
+            card.classList.add('correct');
+            state.score++;
+        } else {
+            card.classList.add('wrong');
+            // 可选：同时高亮正确答案
+        }
+
+        setTimeout(() => {
+            state.currIdx++;
+            renderQuestion();
+        }, 800);
+    }
+
+    function startTimer() {
+        clearInterval(state.timerId);
+        state.timerId = setInterval(() => {
+            state.timer++;
+            const m = Math.floor(state.timer / 60).toString().padStart(2, '0');
+            const s = (state.timer % 60).toString().padStart(2, '0');
+            els.timer.innerText = `${m}:${s}`;
+        }, 1000);
+    }
+
+    function endQuiz() {
+        clearInterval(state.timerId);
+        els.finalScore.innerText = state.score + "/" + state.queue.length;
+        views.modal.style.display = 'flex';
+    }
+
+    // --- 导出给 HTML 的全局函数 ---
+    window.resetQuiz = () => {
+        views.modal.style.display = 'none';
+        window.startQuiz(state.activeCat);
+    };
+
+    window.exitQuiz = () => {
+        clearInterval(state.timerId);
+        views.modal.style.display = 'none';
+        views.quiz.classList.remove('active');
+        views.home.classList.add('active');
+        els.pageTitle.innerText = "ᠰᠡᠳᠦᠪ"; // 恢复标题
+        els.timer.innerText = "00:00";
+    };
+
+    // 启动
+    init();
+
+</script>
+</body>
+</html>

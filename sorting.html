@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>字序练习</title>
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <style>
+        .game-area {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: row; /* 竖排布局 */
+            gap: 20px;
+            overflow-x: auto;
+            writing-mode: vertical-lr;
+        }
+        /* 待选区 */
+        .source-container {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 10px;
+            min-height: 200px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-content: flex-start;
+        }
+        /* 答案区 */
+        .answer-container {
+            border: 2px solid var(--primary-color);
+            border-radius: 12px;
+            padding: 10px;
+            min-height: 200px;
+            background: #eff6ff;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-content: flex-start;
+        }
+        .word-block {
+            padding: 8px 6px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            writing-mode: vertical-lr;
+            font-size: 18px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .label { font-size: 14px; color: #6b7280; writing-mode: vertical-lr; margin-bottom: 5px; }
+        .controls {
+            height: 60px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <a href="index.html" class="home-btn">←</a>
+            <select id="category-select" class="category-select"></select>
+            <div id="timer">0s</div>
+        </header>
+
+        <main class="game-area">
+            <div>
+                <div class="label">请点击字块排序：</div>
+                <div id="source-area" class="source-container"></div>
+            </div>
+            <div>
+                <div class="label">你的答案：</div>
+                <div id="answer-area" class="answer-container"></div>
+            </div>
+        </main>
+
+        <div class="controls">
+            <button class="btn btn-outline" id="next-btn" style="display:none">下一题</button>
+            <button class="btn btn-primary" id="submit-btn">提交</button>
+        </div>
+    </div>
+
+    <!-- 结果弹窗 -->
+    <div id="result-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="modal-title"></h2>
+            <p id="modal-desc"></p>
+            <button class="btn btn-primary" onclick="location.reload()">下一题</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { phrases } from './js/data.js';
+
+        // 状态管理
+        let currentList = [];
+        let currentIdx = 0;
+        let startTime = 0;
+        let timerInterval;
+
+        // 初始化分类
+        const categories = [...new Set(phrases.map(p => p.category))];
+        const select = document.getElementById('category-select');
+        categories.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.innerText = c;
+            select.appendChild(opt);
+        });
+
+        select.addEventListener('change', () => startGame(select.value));
+        
+        // 启动游戏
+        function startGame(category) {
+            currentList = phrases.filter(p => p.category === category);
+            currentIdx = 0;
+            loadLevel(0);
+        }
+
+        function loadLevel(idx) {
+            if (idx >= currentList.length) {
+                alert("本分类练习完成！");
+                return;
+            }
+            
+            const data = currentList[idx];
+            const originalArr = data.content.trim().split(/\s+/);
+            // 打乱数组
+            let shuffledArr = [...originalArr].sort(() => Math.random() - 0.5);
+
+            const sourceArea = document.getElementById('source-area');
+            const answerArea = document.getElementById('answer-area');
+            sourceArea.innerHTML = '';
+            answerArea.innerHTML = '';
+
+            // 渲染打乱的字块
+            shuffledArr.forEach((word, i) => {
+                createBlock(word, sourceArea, answerArea);
+            });
+
+            // 重置计时
+            clearInterval(timerInterval);
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                document.getElementById('timer').innerText = Math.floor((Date.now() - startTime)/1000) + 's';
+            }, 1000);
+
+            // 绑定提交
+            document.getElementById('submit-btn').onclick = () => checkAnswer(originalArr);
+            document.getElementById('next-btn').style.display = 'none';
+        }
+
+        function createBlock(text, parent, target) {
+            const div = document.createElement('div');
+            div.className = 'word-block';
+            div.innerText = text;
+            div.onclick = function() {
+                // 点击移动到另一个容器
+                if (this.parentElement === parent) {
+                    target.appendChild(this);
+                } else {
+                    parent.appendChild(this);
+                }
+            };
+            parent.appendChild(div);
+        }
+
+        function checkAnswer(correctArr) {
+            const userBlocks = document.getElementById('answer-area').children;
+            const userArr = Array.from(userBlocks).map(b => b.innerText);
+            
+            clearInterval(timerInterval);
+            const time = Math.floor((Date.now() - startTime)/1000);
+
+            if (JSON.stringify(userArr) === JSON.stringify(correctArr)) {
+                showModal("✅ 正确！", `耗时：${time}秒`);
+                currentIdx++;
+                document.getElementById('next-btn').style.display = 'block';
+                document.getElementById('next-btn').onclick = () => {
+                     document.getElementById('result-modal').style.display = 'none';
+                     loadLevel(currentIdx);
+                }
+            } else {
+                alert("顺序不对，请调整。");
+                // 继续计时
+                startTime = Date.now() - (time * 1000); 
+                timerInterval = setInterval(() => {
+                    document.getElementById('timer').innerText = Math.floor((Date.now() - startTime)/1000) + 's';
+                }, 1000);
+            }
+        }
+
+        function showModal(title, desc) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            document.getElementById('result-modal').style.display = 'flex';
+        }
+
+        // 默认开始
+        startGame(categories[0]);
+    </script>
+</body>
+</html>
