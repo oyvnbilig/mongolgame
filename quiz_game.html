@@ -6,153 +6,497 @@
     <title>Quiz Game</title>
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
 </head>
 <style>
-    /* 游戏页主内容布局 */
+    /* --- 布局系统 (保持不变) --- */
+    .app-shell {
+        display: flex; flex-direction: column;
+        width: 100vw; height: 100vh;
+        background: #f8fafc;
+    }
+
     .game-layout {
         flex: 1; height: 100%;
         display: flex;
-        /* 竖排下 row = 垂直排列 (Picture Top, Quiz Bottom) */
         flex-direction: row; 
-        padding: 20px; gap: 20px;
-        overflow-x: auto; overflow-y: hidden;
+        padding: 30px; gap: 30px;
+        overflow: hidden;
     }
 
-    /* 1. 图片展示区 */
-    .media-strip {
-        /* 高度固定，宽度自适应 */
-        width: 100%; height: 220px; 
-        flex-shrink: 0;
-        display: none; /* JS控制显隐 */
-        /* 竖排下 column = 水平排列 (图片左右排布) */
-        flex-direction: column; 
-        gap: 15px;
+    /* --- 侧边栏 --- */
+    .sidebar-nav {
+        width: 80px; height: 100%;
+        background: white;
+        border-right: 1px solid #f1f5f9;
+        display: flex; flex-direction: row; 
+        justify-content: space-between; align-items: center;
+        padding: 30px 0;
+        flex-shrink: 0; z-index: 50;
     }
 
-    .media-card {
-        background: var(--surface-color);
-        width: 220px; height: 100%;
-        border-radius: var(--radius-md);
-        padding: 8px;
-        box-shadow: var(--shadow-sm);
-        display: flex; align-items: center; justify-content: center;
-        /* 图片容器内回归横排 */
-        writing-mode: horizontal-tb;
-    }
-    .media-img {
-        width: 100%; height: 100%; object-fit: contain;
-        border-radius: 8px;
-    }
-
-    /* 2. 答题核心区 */
-    .quiz-card {
-        flex: 1; /* 占据剩余垂直空间 */
-        width: 100%; /* 撑满宽度 */
-        background: var(--surface-color);
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-md);
-        padding: 30px;
-        display: flex;
-        flex-direction: column; /* 竖排下 column = 向右排列 (Title -> Options -> Btn) */
-        gap: 40px;
-    }
-
-    /* 题目文字 */
-    .question-text {
-        font-size: 24px; font-weight: 900;
-        line-height: 1.8; color: var(--text-main);
-        text-align: justify;
-        /* 限制题目最大高度（即横排的宽度），防止太长 */
-        max-height: 85vh; 
-    }
-
-    /* 选项组容器 */
-    .options-group {
-        display: flex;
-        /* 修正：row = 垂直排列 (A, B, C...) */
-        flex-direction: row; 
-        flex-wrap: wrap; /* 向右换列 */
-        gap: 15px;
-        height: 100%; /* 撑满高度，强迫换列 */
-        align-content: flex-start;
-    }
-
-    /* 选项按钮 */
-    .option-btn {
-        background: var(--background-color);
-        border: 2px solid transparent;
-        border-radius: 12px;
-        padding: 15px 20px;
-        cursor: pointer;
-        /* 保证选项有足够高度 */
-        min-height: 100px; max-width: 120px;
-        display: flex; align-items: center; justify-content: center;
-        transition: all 0.2s;
-        font-size: 16px; font-weight: bold; color: var(--text-main);
-        text-align: center;
-    }
+    .nav-top { display: flex; flex-direction: row; align-items: center; gap: 20px; }
     
-    .option-btn:hover { background: #e2e8f0; }
-    .option-btn.selected { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-    .option-btn.correct { background: var(--success); color: white; border-color: var(--success); }
-    .option-btn.wrong { background: var(--error); color: white; border-color: var(--error); }
-
-    /* 底部操作栏 */
-    .action-bar {
-        padding-left: 20px;
-        border-left: 1px solid #e2e8f0;
-        display: flex; flex-direction: column; justify-content: flex-end;
-    }
-    
-    /* 下一题按钮 (长条形) */
-    .next-fab {
+    /* 这里的数字保持竖排以便于侧边栏布局，或者也可以横排，但侧边栏空间窄，竖排数字其实在侧边栏还凑合，主要修弹窗 */
+    /* 如果你想让侧边栏数字也横过来，给 .status-badge 加上 writing-mode: horizontal-tb; transform: rotate(90deg); */
+    .status-badge {
         writing-mode: vertical-lr;
-        padding: 30px 15px;
-        font-size: 18px; letter-spacing: 4px;
-        border-radius: 20px;
-    }
-
-    /* 计时器徽章 */
-    .timer-badge {
-        writing-mode: vertical-lr;
-        background: #fef3c7; color: #d97706;
         padding: 8px 6px; border-radius: 8px;
         font-weight: bold; font-family: monospace;
-        font-size: 12px;
+        font-size: 12px; letter-spacing: 1px;
+        text-align: center;
     }
+    .timer-style { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; }
+    .progress-style { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+
+    /* 1. 图片区 */
+    .media-strip {
+        width: 100%; height: 220px; flex-shrink: 0;
+        display: none; flex-direction: column; gap: 15px; overflow-x: auto;
+    }
+    .media-card {
+        background: white; width: 220px; height: 100%;
+        border-radius: 16px; padding: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        display: flex; align-items: center; justify-content: center;
+        writing-mode: horizontal-tb;
+    }
+    .media-img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+
+    /* 2. 答题卡片 */
+    .quiz-card {
+        flex: 1; width: 100%;
+        background: white; border-radius: 24px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.04);
+        padding: 40px;
+        display: flex; flex-direction: column; gap: 40px;
+        overflow-x: auto; position: relative;
+    }
+
+    .question-text {
+        font-size: 24px; font-weight: 900;
+        line-height: 1.8; color: #1e293b;
+        text-align: justify; max-height: 85vh; letter-spacing: 1px;
+    }
+
+    .options-group { display: flex; flex-direction: column; gap: 20px; }
+
+    /* 选项 */
+    .option-btn {
+        background: white; border: 1px solid #e2e8f0; border-radius: 16px;
+        padding: 20px 15px; cursor: pointer;
+        min-height: 140px; width: 70px;
+        display: flex; justify-content: flex-start; align-items: center;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); position: relative;
+    }
+    .opt-label {
+        font-size: 14px; font-weight: 900; color: #94a3b8;
+        margin-bottom: 12px; font-family: sans-serif;
+        writing-mode: horizontal-tb; transform: rotate(90deg);
+    }
+    .opt-content { font-size: 18px; font-weight: 600; color: #334155; line-height: 1.5; text-align: justify; }
+    .option-btn:hover { border-color: #cbd5e1; transform: translateY(-2px); }
+    .option-btn:active { transform: scale(0.98); }
+    .option-btn.selected { border: 2px solid var(--primary-color); background: #eff6ff; box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15); }
+    .option-btn.selected .opt-label, .option-btn.selected .opt-content { color: var(--primary-color); }
+    .option-btn.correct { border: 2px solid #10b981 !important; background: #ecfdf5 !important; }
+    .option-btn.correct::after {
+        content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900;
+        position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%) rotate(90deg);
+        color: #10b981; font-size: 16px;
+    }
+    .option-btn.wrong { border: 2px solid #ef4444 !important; background: #fef2f2 !important; opacity: 0.7; }
+    .option-btn.wrong::after {
+        content: '\f00d'; font-family: "Font Awesome 6 Free"; font-weight: 900;
+        position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%) rotate(90deg);
+        color: #ef4444; font-size: 16px;
+    }
+
+    /* 按钮 */
+    .action-bar { padding-left: 20px; display: flex; flex-direction: column; justify-content: flex-end; }
+    .action-fab {
+        writing-mode: vertical-lr; width: 64px; min-height: 64px; max-height: 140px;
+        border-radius: 32px; background: #0f172a; color: white; border: none;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        font-size: 16px; font-weight: bold; letter-spacing: 2px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3); transition: all 0.3s; cursor: pointer;
+    }
+    .action-fab:disabled { background: #e2e8f0; color: #94a3b8; box-shadow: none; cursor: not-allowed; }
+    .action-fab:not(:disabled):hover { transform: scale(1.05); box-shadow: 0 15px 30px rgba(15, 23, 42, 0.4); }
+    .fab-icon { font-size: 18px; transform: rotate(90deg); }
+
+    /* 移动端适配 */
+    @media (max-width: 768px) {
+        .sidebar-nav { width: 50px; padding: 20px 0; }
+        .nav-btn { width: 36px; height: 36px; font-size: 16px; }
+        .nav-top { gap: 10px; }
+        .status-badge { font-size: 10px; padding: 6px 4px; border-radius: 6px; }
+        .game-layout { padding: 15px; gap: 15px; }
+        .quiz-card { padding: 20px; gap: 20px; border-radius: 20px; }
+        .media-strip { height: 160px; }
+        .media-card { width: 160px; }
+        .question-text { font-size: 20px; }
+        .options-group { gap: 10px; }
+        .option-btn { width: 50px; min-height: 90px; padding: 15px 5px; font-size: 14px; }
+        .opt-label { font-size: 10px; margin-bottom: 6px; }
+        .action-bar { padding-left: 5px; }
+        .action-fab { width: 48px; border-radius: 24px; font-size: 14px; }
+    }
+
+    /* --- 结算弹窗 (全新修正版) --- */
+    .result-modal-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(8px);
+        display: none; justify-content: center; align-items: center;
+        z-index: 100; writing-mode: horizontal-tb; /* 遮罩层用横排，方便居中 */
+    }
+
+    .result-card {
+        background: white;
+        padding: 40px;
+        border-radius: 30px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        border: 1px solid #f1f5f9;
+        
+        display: flex; 
+        /* 竖排布局，内容从左向右 */
+        writing-mode: vertical-lr; 
+        gap: 30px;
+        align-items: center; /* 垂直居中 (竖排的交叉轴) */
+        
+        animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    /* 1. 表情包 (强制横排，正向显示) */
+    .result-emoji {
+        font-size: 64px;
+        margin-left: 10px;
+        /* 关键：强制横排 */
+        writing-mode: horizontal-tb; 
+        text-align: center;
+        /* 动画：无需旋转，直接跳动 */
+        animation: bounce 1s infinite;
+    }
+    @keyframes bounce { 
+        0%, 100% { transform: translateY(0); } 
+        50% { transform: translateY(-10px); } 
+    }
+
+    /* 2. 评价语 (蒙古文保持竖排) */
+    .result-grade {
+        font-size: 28px; font-weight: 900; 
+        color: var(--primary-color);
+        letter-spacing: 2px;
+        /* 竖排默认 */
+    }
+
+    /* 3. 数据统计区 */
+    .result-stats {
+        display: flex; 
+        /* 竖排下 row = 从上到下 */
+        flex-direction: row; 
+        gap: 20px;
+        border-right: 1px solid #e2e8f0; 
+        padding-right: 20px;
+        align-items: center; /* 居中对齐 */
+    }
+
+    .stat-item {
+        display: flex; 
+        /* 竖排下 column = 从左向右 */
+        flex-direction: column; 
+        gap: 8px; 
+        align-items: center;
+    }
+
+    .stat-label {
+        font-size: 12px; color: #94a3b8; font-weight: bold;
+        /* 标签是蒙古文，保持竖排 */
+    }
+
+    .stat-val {
+        font-size: 20px; font-weight: 900; color: #1e293b;
+        /* 关键：数字强制横排 */
+        writing-mode: horizontal-tb;
+        font-family: 'DIN Alternate', 'Roboto', sans-serif; /* 选用适合数字的字体 */
+    }
+
+    /* 4. 按钮区 */
+    .result-actions { 
+        display: flex; gap: 15px; margin-top: 10px; 
+        flex-direction: column; /* 竖排下，按钮排成一列(左右) */
+    }
+    .res-btn {
+        width: 50px; height: 50px; /* 圆形按钮更高端 */
+        border-radius: 50%; border: none; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 18px; transition: all 0.2s;
+        /* 图标也需要横过来 */
+        writing-mode: horizontal-tb;
+    }
+    .res-btn-primary { background: #1e293b; color: white; box-shadow: 0 4px 10px rgba(30,41,59,0.2); }
+    .res-btn-sec { background: #f1f5f9; color: #64748b; }
+    .res-btn:hover { transform: scale(1.1); }
+
+    /* --- 分享海报弹窗 --- */
+    /* --- 弹窗容器（保持横排，为了让按钮在下面） --- */
+    /* --- 弹窗容器 (保持横排，确保按钮在下方) --- */
+    .poster-modal {
+        position: fixed; inset: 0;
+        background: rgba(20, 20, 20, 0.98); /* 深色背景更显高端 */
+        backdrop-filter: blur(8px);
+        display: none;
+        writing-mode: horizontal-tb !important; /* 强制横排布局 */
+        flex-direction: column;
+        justify-content: center; align-items: center;
+        z-index: 200;
+        overflow: hidden;
+    }
+
+    /* --- 海报本体 (固定尺寸是修复导出错位的关键！) --- */
+    #poster-canvas {
+        background: #fdfbf7; /* 极浅的米白色，比纯白更有质感 */
+        background-image: 
+            radial-gradient(circle at 100% 0%, #eff6ff 0%, transparent 20%),
+            radial-gradient(circle at 0% 100%, #fff7ed 0%, transparent 20%);
+        
+        /* 关键：使用固定像素尺寸，不要用 vh/vw，否则html2canvas计算会乱 */
+        width: 360px; 
+        height: 640px; 
+        
+        padding: 30px;
+        box-sizing: border-box; /* 确保padding不撑大容器 */
+        
+        /* 核心竖排设置 */
+        writing-mode: vertical-lr; 
+        text-orientation: mixed;
+        
+        display: flex;
+        flex-direction: row; /* 竖排下 row = 垂直流 (Top->Bottom) */
+        justify-content: space-between; /*以此拉开 头、中、底 的距离 */
+        align-items: center; /* 居中对齐 */
+        
+        position: relative;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        border-radius: 4px; /* 视觉圆角 */
+
+        /* 关键：告诉渲染引擎这是一个独立的图层 */
+        transform: translate3d(0, 0, 0); 
+        will-change: transform;
+    }
+    
+    /* 确保所有海报内的图片不使用懒加载，并且强制显示 */
+    #poster-canvas img {
+        display: inline-block !important; /* 防止被优化隐藏 */
+        transform: translateZ(0);
+    }
+        /* 装饰边框（内缩边框，增加高级感） */
+    #poster-canvas::before {
+        content: ''; position: absolute;
+        top: 15px; left: 15px; bottom: 15px; right: 15px; /* 物理四周 */
+        border: 1px solid #e2e8f0;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* --- 1. 头部 Logo (视觉左上) --- */
+    .poster-header {
+        z-index: 2; height: 100px;
+        display: flex; flex-direction: column; /* Left->Right */
+        align-items: center; gap: 15px;
+    }
+    /* .poster-logo-box {
+        writing-mode: horizontal-tb; 
+        width: 48px; height: 48px;
+        background: var(--primary-color); 
+        color: white; border-radius: 12px;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 24px;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+    } */
+    .poster-logo-box {
+        writing-mode: horizontal-tb;
+        width: 60px; height: 60px; /* 稍微加大一点尺寸，原来的48px可能放图片太小 */
+        
+        /* 
+        如果你的 Logo 本身是透明的，且是深色，这里可以去掉 background 和 color 
+        如果你的 Logo 是白色的，需要保留背景色。
+        假设你的 erildu.png 是标准的彩色 Logo，建议去掉背景色，或者改成白色背景 
+        */
+        background: transparent; /* 去掉蓝色背景 */
+        /* background: white; */ /* 或者用白色背景 */
+        
+        border-radius: 12px;
+        display: flex; justify-content: center; align-items: center;
+        /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); */ /* 可选：去掉阴影看起来更干净 */
+        overflow: hidden; /* 防止图片溢出圆角 */
+    }
+    /* 新增：Logo 图片专用样式 */
+    .poster-logo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* 保证 Logo 完整显示，不变形 */
+        display: block; /* 消除图片底部的间隙 */
+    }
+    
+    .poster-app-title {
+        font-size: 14px; font-weight: 900; color: #94a3b8;
+        letter-spacing: 3px;
+        height: 100%; /* 撑满高度 */
+        text-align: center;
+    }
+
+    /* --- 2. 核心成绩卡 (视觉中间) --- */
+    /* 将分数和称号包在一起，解决“0”突兀的问题 */
+    .poster-card {
+        z-index: 2; flex: 1; /* 占据中间所有空间 */
+        display: flex; 
+        flex-direction: column; /* Left->Right inside */
+        justify-content: center; align-items: center;
+        gap: 30px;
+        
+        /* 给个背景卡片感 */
+        /* background: white; */ 
+        /* border: 1px solid #f1f5f9; */
+        /* border-radius: 20px; */
+        /* padding: 20px; */
+        /* box-shadow: 0 10px 30px rgba(0,0,0,0.02); */
+    }
+
+    /* 印章/圆形分数设计 */
+    .score-badge {
+        writing-mode: horizontal-tb; /* 必须横排 */
+        width: 100px; height: 100px;
+        border-radius: 50%;
+        border: 4px solid var(--primary-light);
+        display: flex; flex-direction: column;
+        justify-content: center; align-items: center;
+        position: relative;
+        background: white;
+    }
+    .score-val {
+        font-family: 'DIN Alternate', sans-serif;
+        font-size: 48px; font-weight: 900; color: var(--primary-color);
+        line-height: 1;
+    }
+    .score-label-sub {
+        font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;
+        margin-top: 2px;
+    }
+
+    /* 称号展示 */
+    .rank-display {
+        display: flex; flex-direction: row; /* 垂直堆叠 */
+        gap: 15px; align-items: center;
+    }
+    .rank-deco-line {
+        width: 2px; height: 20px; background: var(--primary-color);
+        border-radius: 2px; opacity: 0.3;
+    }
+    .rank-text-group {
+        display: flex; flex-direction: row; gap: 10px;align-items: center;
+    }
+    .rank-label { font-size: 12px; color: #94a3b8; }
+    .rank-title { 
+        font-size: 42px; font-weight: 900; color: #1e293b;
+        text-shadow: 2px 2px 0px rgba(0,0,0,0.05);
+    }
+
+    /* 寄语 */
+    .poster-quote {
+        font-size: 12px; color: #64748b; font-weight: 500;
+        line-height: 1.8;
+        /* border-left: 1px dashed #cbd5e1;  */
+        /* 视觉上方 */
+        padding-left: 15px; margin-left: 10px;
+    }
+
+    /* --- 3. 底部二维码 (视觉右下) --- */
+    .poster-footer {
+        z-index: 2;
+        display: flex; flex-direction: column; /* Left->Right */
+        align-items: center; gap: 20px;
+        
+        /* 分割线 */
+        border-top: 1px solid #f1f5f9; /* 物理左侧 */
+        padding-top: 20px;
+    }
+
+    .qr-block {
+        display: flex; flex-direction: row; /* Top->Bottom */
+        align-items: center; gap: 10px;
+    }
+    .qr-frame {
+        writing-mode: horizontal-tb; /* 强制横排 */
+        width: 60px; height: 60px;
+        padding: 3px; background: white;
+        border: 1px solid #e2e8f0; border-radius: 8px;
+    }
+    /* .qr-frame img { width: 100%; height: 100%; object-fit: contain; opacity: 0.9; } */
+    .qr-frame img { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: cover; /* 改成 cover 会填满格子，看起来更整齐 */
+        opacity: 1; /* 确保不透明 */
+        display: block;
+    }
+    .qr-caption { font-size: 10px; color: #94a3b8; font-weight: bold; height: 60px; }
+
+
+    /* --- 按钮区 (海报下方) --- */
+    .poster-actions {
+        margin-top: 30px;
+        display: flex; gap: 40px;
+        writing-mode: horizontal-tb;
+    }
+    .action-item {
+        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        cursor: pointer;
+    }
+    .action-btn {
+        width: 56px; height: 56px; border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 20px; border: none; transition: transform 0.2s;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+    .action-item:hover .action-btn { transform: translateY(-3px); }
+    .action-item:active .action-btn { transform: scale(0.95); }
+
+    .btn-dl { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; }
+    .btn-x { background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.2); }
+
+    .action-text {
+        font-size: 12px; color: #94a3b8; writing-mode: vertical-lr; height: 30px;
+    }
+
 
 </style>
 <body>
     <div class="app-shell">
          <!-- 侧边栏 -->
          <nav class="sidebar-nav">
-             <div class="nav-btn" onclick="history.back()"><i class="fa-solid fa-xmark"></i></div>
-             <div class="timer-badge" id="timer">00:00</div>
-             <div style="width: 48px;"></div>
+             <div class="nav-top">
+                <div class="nav-btn" onclick="history.back()"><i class="fa-solid fa-arrow-left"></i></div>
+                <div class="status-badge progress-style" id="progress">1 / 10</div>
+                <div class="status-badge timer-style" id="timer">00:00</div>
+             </div>
+             <div style="font-size:18px; color:#cbd5e1; writing-mode:vertical-lr; font-weight:900; margin-bottom:20px;">
+                <i class="fa-solid fa-graduation-cap"></i>
+             </div>
          </nav>
 
          <!-- 游戏主布局 -->
          <main class="game-layout scroll-hide">
-            
-            <!-- A. 图片区 (动态) -->
-            <div class="media-strip scroll-hide" id="media-area">
-                <!-- JS Inject Images -->
-            </div>
-
-            <!-- B. 答题区 -->
+            <div class="media-strip scroll-hide" id="media-area"></div>
             <div class="quiz-card scroll-hide">
-                <!-- 1. 题目 -->
                 <div class="question-text" id="q-text">Loading...</div>
-                
-                <!-- 2. 选项 -->
-                <div class="options-group" id="opt-area">
-                    <!-- JS Inject Options -->
-                </div>
-
-                <!-- 3. 操作 -->
+                <div class="options-group" id="opt-area"></div>
                 <div class="action-bar">
-                    <button id="next-btn" class="btn-primary next-fab" disabled>
-                        ᠳᠠᠷᠠᠭᠠᠬᠢ <!-- Next -->
+                    <button id="action-btn" class="action-fab" disabled>
+                        <i class="fa-solid fa-check fab-icon"></i> 
+                        <span>ᠪᠠᠲᠤᠯᠠᠬᠤ</span>
                     </button>
                 </div>
             </div>
@@ -160,132 +504,238 @@
     </div> 
 
     <!-- 结算弹窗 -->
-    <div id="result-modal" class="modal-backdrop">
-        <div class="modal-card">
-            <h2 style="margin:0; color:var(--text-main);">ᠳ᠋ᠦᠩ</h2> <!-- Score -->
-            <div style="font-size:48px; font-weight:900; color:var(--primary-color);" id="final-score">0/0</div>
-            
-            <div style="display:flex; gap:12px; margin-top:20px;">
-                <button class="btn-primary" onclick="location.reload()">
-                    <i class="fa-solid fa-rotate-right" style="margin-bottom:8px;"></i> ᠳᠠᠬᠢᠵᠤ
+    <div id="result-modal" class="result-modal-backdrop">
+        <div class="result-card">
+            <!-- 1. 表情 (横排) -->
+            <div class="result-emoji" id="res-emoji">🤩</div>
+
+            <!-- 2. 评价 (竖排) -->
+            <div class="result-grade" id="res-grade">ᠭᠠᠶᠢᠬᠠᠮᠰᠢᠭ</div>
+
+            <!-- 3. 数据 (混合) -->
+            <div class="result-stats">
+                <div class="stat-item">
+                    <span class="stat-label">ᠬᠤᠭᠤᠴᠠᠭ᠎ᠠ</span> <!-- Time -->
+                    <span class="stat-val" id="res-time">00:00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">ᠣᠨᠣᠭᠣ</span> <!-- Score -->
+                    <span class="stat-val" id="res-score">100%</span>
+                </div>
+            </div>
+
+            <!-- 4. 按钮 (横排图标) -->
+            <div class="result-actions">
+                <button class="res-btn res-btn-primary" onclick="location.reload()">
+                    <i class="fa-solid fa-rotate-right"></i>
                 </button>
-                <button class="btn-primary" style="background:#e2e8f0; color:#475569;" onclick="history.back()">
-                     ᠪᠤᠴᠠᠬᠤ
+                <button class="res-btn res-btn-sec" onclick="history.back()">
+                    <i class="fa-solid fa-list"></i>
+                </button>
+                <button class="res-btn res-btn-primary" onclick="showPoster()">
+                    <i class="fa-solid fa-share-nodes"></i>
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- 海报生成弹窗 -->
+    <div id="poster-modal" class="poster-modal">
+    
+        <!-- 1. 海报绘制区 -->
+        <div id="poster-canvas">
+            
+            <!-- Header: Logo -->
+            <div class="poster-header">
+                <div class="poster-logo-box">
+                    <!-- <i class="fa-solid fa-graduation-cap"></i> -->
+                    <img src="assets/images/erildu.png" class="poster-logo-img" alt="Logo">
+                </div>
+                <div class="poster-app-title">ᠮᠣᠩᠭᠣᠯ ᠰᠣᠷᠢᠯᠲᠠ</div>
+            </div>
+
+            <!-- Body: Card -->
+            <div class="poster-card">
+                
+                <!-- 分数印章 (Badge) -->
+                <div class="score-badge">
+                    <span class="score-val" id="poster-score-val">100</span>
+                    <span class="score-label-sub">POINT</span>
+                </div>
+
+                <!-- 称号组 -->
+                <div class="rank-display">
+                    <div class="rank-deco-line"></div>
+                    <div class="rank-text-group">
+                        <div class="rank-label">ᠮᠢᠨᠦ<br>ᠴᠣᠯᠠ</div> <!-- 我的称号 -->
+                        <div class="rank-title" id="poster-rank-title">ᠮᠡᠷᠭᠡᠨ</div>
+                    </div>
+                    <div class="rank-deco-line"></div>
+                </div>
+
+                <!-- 寄语 -->
+                <div class="poster-quote">
+                    ᠡᠬᠡ ᠬᠡᠯᠡ ᠪᠡᠨ ᠬᠠᠶᠢᠷᠠᠯᠠᠶ᠎ᠠ ᠂ <br>
+                    ᠰᠣᠷᠢᠯᠲᠠ ᠎ᠠᠴᠠ ᠡᠬᠢᠯᠡᠶ᠎ᠡ ᠃
+                </div>
+            </div>
+
+            <!-- Footer: QR Codes -->
+            <div class="poster-footer">
+                <div class="qr-block">
+                    <div class="qr-frame">
+                        <!-- <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=MiniApp" alt="QR"> -->
+                        <img src="assets/images/erildu_xcx.jpg" alt="MiniApp">
+                    </div>
+                    <div class="qr-caption">ᠪᠢᠴᠢᠬᠠᠨ<br>ᠫᠷᠣᠭᠷᠠᠮ</div>
+                </div>
+                <div class="qr-block">
+                    <div class="qr-frame">
+                        <!-- <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Official" alt="QR"> -->
+                        <img src="assets/images/erildu_gzh.jpg" alt="Official">
+                    </div>
+                    <div class="qr-caption">ᠪᠢᠳᠡᠨ ᠢ<br>ᠳᠠᠭᠠᠭᠠᠷᠠᠢ</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 2. 操作按钮 -->
+        <div class="poster-actions">
+            <div class="action-item" onclick="closePoster()">
+                <button class="action-btn btn-x"><i class="fa-solid fa-xmark"></i></button>
+                <span class="action-text">ᠬᠠᠭᠠᠬᠤ</span>
+            </div>
+            <div class="action-item" onclick="savePoster()" id="save-btn-container">
+                <button class="action-btn btn-dl"><i class="fa-solid fa-download"></i></button>
+                <span class="action-text">ᠬᠠᠳᠠᠭᠠᠯᠠᠬᠤ</span>
+            </div>
+        </div>
+    </div>
     <script type="module">
         import { questions } from './js/data.js';
 
         const params = new URLSearchParams(window.location.search);
         const category = params.get('category');
         
-        // 状态
         let list = [];
         let currIdx = 0;
         let score = 0;
-        let hasAnswered = false;
+        let selectedIdx = null;
+        let isGraded = false;
+        
         let timerSec = 0;
         let timerId = null;
 
-        // 元素
         const els = {
             mediaArea: document.getElementById('media-area'),
             qText: document.getElementById('q-text'),
             optArea: document.getElementById('opt-area'),
-            nextBtn: document.getElementById('next-btn'),
+            actionBtn: document.getElementById('action-btn'),
             modal: document.getElementById('result-modal'),
-            scoreDisplay: document.getElementById('final-score'),
-            timer: document.getElementById('timer')
+            
+            timer: document.getElementById('timer'),
+            progress: document.getElementById('progress'),
+
+            resEmoji: document.getElementById('res-emoji'),
+            resGrade: document.getElementById('res-grade'),
+            resTime: document.getElementById('res-time'),
+            resScore: document.getElementById('res-score')
         };
 
         function init() {
-            if (!category) { alert('Category Error'); return; }
-            
-            // 筛选并乱序
+            if (!category) { alert('Error'); return; }
             list = questions.filter(q => q.category === category).sort(() => Math.random() - 0.5);
-            
-            if (list.length === 0) {
-                els.qText.innerText = "No questions in this category.";
-                return;
-            }
+            if (!list.length) { els.qText.innerText = "No questions."; return; }
 
             startTimer();
             loadQuestion();
         }
 
         function loadQuestion() {
-            if (currIdx >= list.length) {
-                finish();
-                return;
-            }
-
+            if (currIdx >= list.length) { finish(); return; }
             const data = list[currIdx];
-            hasAnswered = false;
             
-            // 按钮状态
-            els.nextBtn.disabled = true;
-            els.nextBtn.innerHTML = (currIdx === list.length - 1) ? 
-                '<i class="fa-solid fa-flag-checkered"></i>' : // Finish icon
-                'ᠳᠠᠷᠠᠭᠠᠬᠢ'; // Next text
+            selectedIdx = null;
+            isGraded = false;
+            
+            els.progress.innerText = `${currIdx + 1} / ${list.length}`;
 
-            // 1. 渲染题目
+            const btnSpan = els.actionBtn.querySelector('span');
+            const btnIcon = els.actionBtn.querySelector('i');
+            els.actionBtn.disabled = true;
+            els.actionBtn.style.background = "#0f172a"; 
+            btnSpan.innerText = "ᠪᠠᠲᠤᠯᠠᠬᠤ"; 
+            btnIcon.className = "fa-solid fa-check fab-icon";
+
             els.qText.innerText = data.question;
-
-            // 2. 渲染图片 (智能显隐)
             els.mediaArea.innerHTML = '';
             const imgs = Array.isArray(data.image) ? data.image : (data.image ? [data.image] : []);
-            
-            if (imgs.length > 0) {
-                els.mediaArea.style.display = 'flex'; // 显示图片区
-                imgs.forEach(src => {
-                    const card = document.createElement('div');
-                    card.className = 'media-card';
-                    card.innerHTML = `<img src="${src}" class="media-img" loading="lazy">`;
-                    els.mediaArea.appendChild(card);
-                });
+            if (imgs.length) {
+                els.mediaArea.style.display = 'flex';
+                imgs.forEach(src => els.mediaArea.innerHTML += `<div class="media-card"><img src="${src}" class="media-img"></div>`);
             } else {
-                els.mediaArea.style.display = 'none'; // 隐藏图片区，让quiz-card自动变大
+                els.mediaArea.style.display = 'none';
             }
 
-            // 3. 渲染选项
             els.optArea.innerHTML = '';
-            // 创建带索引的选项对象以进行对比
             const opts = data.options.map((txt, idx) => ({ txt, idx })).sort(() => Math.random() - 0.5);
+            const labels = ['A', 'B', 'C', 'D', 'E'];
 
-            opts.forEach(opt => {
+            opts.forEach((opt, i) => {
                 const btn = document.createElement('div');
                 btn.className = 'option-btn';
-                btn.innerText = opt.txt;
-                btn.onclick = () => check(btn, opt.idx, data.correct);
+                btn.dataset.originalIdx = opt.idx;
+                btn.innerHTML = `<span class="opt-label">${labels[i]}</span><span class="opt-content">${opt.txt}</span>`;
+                btn.onclick = () => handleSelect(btn);
                 els.optArea.appendChild(btn);
             });
 
-            // 视图复位：滚回最左边
             document.querySelector('.game-layout').scrollLeft = 0;
-            // 确保选项区域也滚回顶部(物理上是顶部)
             els.optArea.scrollLeft = 0; 
         }
 
-        function check(btn, idx, correct) {
-            if (hasAnswered) return;
-            hasAnswered = true;
-
-            if (idx === correct) {
-                btn.classList.add('selected', 'correct'); // 绿色
-                score++;
-            } else {
-                btn.classList.add('selected', 'wrong'); // 红色
-                // 可选：高亮正确答案
-            }
-            els.nextBtn.disabled = false;
+        function handleSelect(btn) {
+            if (isGraded) return; 
+            document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedIdx = parseInt(btn.dataset.originalIdx);
+            els.actionBtn.disabled = false;
         }
 
-        els.nextBtn.onclick = () => {
-            currIdx++;
-            loadQuestion();
+        els.actionBtn.onclick = () => {
+            const btnSpan = els.actionBtn.querySelector('span');
+            const btnIcon = els.actionBtn.querySelector('i');
+
+            if (!isGraded) {
+                const data = list[currIdx];
+                const isCorrect = (selectedIdx === data.correct);
+                if (isCorrect) score++;
+
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    const oIdx = parseInt(btn.dataset.originalIdx);
+                    if (oIdx === data.correct) {
+                        btn.classList.add('correct');
+                        btn.classList.remove('selected');
+                    } else if (oIdx === selectedIdx && !isCorrect) {
+                        btn.classList.add('wrong');
+                        btn.classList.remove('selected');
+                    }
+                });
+
+                isGraded = true;
+                els.actionBtn.style.background = "var(--primary-color)";
+                if (currIdx === list.length - 1) {
+                    btnSpan.innerText = "ᠳᠠᠭᠤᠰᠬᠠᠬᠤ"; 
+                    btnIcon.className = "fa-solid fa-flag-checkered fab-icon";
+                } else {
+                    btnSpan.innerText = "ᠳᠠᠷᠠᠭᠠᠬᠢ"; 
+                    btnIcon.className = "fa-solid fa-arrow-right fab-icon";
+                }
+            } else {
+                currIdx++;
+                loadQuestion();
+            }
         };
 
         function startTimer() {
@@ -297,13 +747,124 @@
             }, 1000);
         }
 
+        // 新增元素引用
+        const posterEls = {
+            modal: document.getElementById('poster-modal'),
+            score: document.getElementById('poster-score-val'),
+            rank: document.getElementById('poster-rank-title'),
+            saveBtn: document.getElementById('save-btn')
+        };
+
         function finish() {
             clearInterval(timerId);
-            els.scoreDisplay.innerText = `${score} / ${list.length}`;
+            const percentage = Math.round((score / list.length) * 100);
+            
+            let gradeText = "";
+            let emoji = "";
+            let gradeColor = "";
+
+            if (percentage === 100) {
+                gradeText = "ᠭᠠᠶᠢᠬᠠᠮᠰᠢᠭ"; 
+                emoji = "🤩";
+                gradeColor = "#10b981"; 
+            } else if (percentage >= 90) {
+                gradeText = "ᠮᠠᠰᠢ ᠰᠠᠶᠢᠨ"; 
+                emoji = "😎";
+                gradeColor = "#3b82f6"; 
+            } else if (percentage >= 60) {
+                gradeText = "ᠪᠣᠯᠤᠮᠵᠢ ᠲᠠᠢ"; 
+                emoji = "🤔";
+                gradeColor = "#f59e0b"; 
+            } else if (percentage >= 25) {
+                gradeText = "ᠬᠢᠴᠢᠶᠡᠬᠦ ᠬᠡᠷᠡᠭᠲᠡᠢ"; 
+                emoji = "😮‍💨";
+                gradeColor = "#f97316"; 
+            } else {
+                gradeText = "ᠮᠠᠭᠤ"; 
+                emoji = "😭";
+                gradeColor = "#ef4444"; 
+            }
+
+            let rankTitle = "";
+            if (percentage === 100) {
+                rankTitle = "ᠮᠡᠷᠭᠡᠨ"; // 大师/智者 (Mergen)
+            } else if (percentage >= 85) {
+                rankTitle = "ᠡᠷᠳᠡᠮᠲᠡᠨ"; // 学者 (Erdemten)
+            } else if (percentage >= 60) {
+                rankTitle = "ᠰᠤᠷᠤᠯᠴᠠᠭᠴᠢ"; // 学习者 (Surulcagci)
+            } else {
+                rankTitle = "ᠡᠬᠢᠯᠠᠨ ᠰᠤᠷᠤᠭᠴᠢ"; // 初学者 (Ehilan surugci)
+            }
+
+            posterEls.score.innerText = percentage;
+            posterEls.rank.innerText = rankTitle;
+
+            els.resTime.innerText = els.timer.innerText;
+            els.resScore.innerText = percentage + "%";
+            els.resGrade.innerText = gradeText;
+            els.resGrade.style.color = gradeColor;
+            els.resEmoji.innerText = emoji;
+
             els.modal.style.display = 'flex';
         }
 
         init();
+        // --- 新增海报相关函数 ---
+
+        window.showPoster = function() {
+            // 隐藏普通结算弹窗
+            document.getElementById('result-modal').style.display = 'none';
+            // 显示海报弹窗
+            posterEls.modal.style.display = 'flex';
+        }
+
+        window.closePoster = function() {
+            posterEls.modal.style.display = 'none';
+            // 恢复显示普通结果
+            document.getElementById('result-modal').style.display = 'flex';
+        }
+
+        window.savePoster = function() {
+            const node = document.getElementById('poster-canvas');
+            const btnContainer = document.getElementById('save-btn-container');
+
+            // 1. 设置加载状态
+            const oldHtml = btnContainer.innerHTML;
+            btnContainer.innerHTML = '<button class="action-btn btn-dl"><i class="fa-solid fa-spinner fa-spin"></i></button><span class="action-text">Wait...</span>';
+            btnContainer.style.pointerEvents = 'none';
+
+            // 2. 预处理：确保二维码等图片已加载且不跨域
+            // html-to-image 会自动处理大部分，但我们需要确保背景色
+            const options = {
+                backgroundColor: '#fdfbf7', // 强制背景色，防止透明
+                style: {
+                    // 强制重置可能干扰的属性
+                    margin: '0',
+                },
+                // 关键：针对移动端优化，提高像素密度
+                pixelRatio: 2, 
+            };
+
+            // 3. 生成图片
+            htmlToImage.toPng(node, options)
+                .then(function (dataUrl) {
+                    // 4. 下载逻辑
+                    const link = document.createElement('a');
+                    link.download = 'MongolQuiz_Card.png';
+                    link.href = dataUrl;
+                    link.click();
+
+                    // 恢复按钮
+                    btnContainer.innerHTML = oldHtml;
+                    btnContainer.style.pointerEvents = 'auto';
+                })
+                .catch(function (error) {
+                    console.error('oops, something went wrong!', error);
+                    alert("Image generation failed: " + error.message);
+                    btnContainer.innerHTML = oldHtml;
+                    btnContainer.style.pointerEvents = 'auto';
+                });
+        }
     </script>
 </body>
 </html>
